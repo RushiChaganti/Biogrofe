@@ -8,7 +8,6 @@ import {
   Globe,
   Phone,
   Mail,
-  Sparkles,
   GitCompare,
   X,
   Bookmark,
@@ -23,8 +22,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ExportMenu } from "@/components/export-menu"
-import { PWAInstall } from "@/components/pwa-install"
-import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
 import { WorldMap } from "@/components/world-map"
 
 type Organization = {
@@ -205,22 +202,22 @@ const parseCSV = (csvText: string): Organization[] => {
         return null
       }
 
-      const org: any = {}
+      const org: Record<string, unknown> = {};
 
       headers.forEach((header, i) => {
         org[header] = (row[i] || "").trim()
       })
 
-      // Extract and clean the main fields
-      const researchArea = (org["Research area/lab/scientist"] || "").trim()
-      const organization = (org["Organization"] || "").trim()
-      const location = (org["Location"] || "").trim()
-      const address = (org["Address"] || "").trim()
-      const weblink = (org["Weblink"] || "").trim()
-      const contactPerson = (org["Contact Person"] || "").trim()
-      const email = (org["Email"] || "").trim()
-      const twitter = (org["Twitter"] || "").trim()
-      const linkedin = (org["Linkedin"] || "").trim()
+      const researchArea = String(org["Research area/lab/scientist"] ?? "").trim();
+      const organization = String(org["Organization"] ?? "").trim();
+      const location = String(org["Location"] ?? "").trim();
+      const address = String(org["Address"] ?? "").trim();
+      const weblink = String(org["Weblink"] ?? "").trim();
+      const contactPerson = String(org["Contact Person"] ?? "").trim();
+      const email = String(org["Email"] ?? "").trim();
+      const twitter = String(org["Twitter"] ?? "").trim();
+      const linkedin = String(org["Linkedin"] ?? "").trim();
+
 
       // Skip if all essential fields are empty or if the name would be invalid
       if (!researchArea && !organization && !location && !weblink && !contactPerson && !email) {
@@ -334,7 +331,6 @@ export default function BiotechDirectory() {
   const [selectedEmployeeSize, setSelectedEmployeeSize] = useState("All Sizes")
   const [selectedSort, setSelectedSort] = useState("A to Z")
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
-  const [isAiSearch, setIsAiSearch] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [compareList, setCompareList] = useState<number[]>([])
   const [showComparison, setShowComparison] = useState(false)
@@ -342,7 +338,6 @@ export default function BiotechDirectory() {
   const [viewMode, setViewMode] = useState<"grid" | "countries" | "map">("grid")
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
   const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks()
-  const [aiEnhancedQuery, setAiEnhancedQuery] = useState("")
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -422,7 +417,7 @@ export default function BiotechDirectory() {
 
     // Apply search filter with AI enhancement
     if (searchTerm) {
-      filtered = performIntelligentSearch(searchTerm, filtered, isAiSearch, aiEnhancedQuery)
+      filtered = performIntelligentSearch(searchTerm, filtered)
     }
 
     if (showBookmarksOnly) {
@@ -453,8 +448,6 @@ export default function BiotechDirectory() {
     selectedEmployeeSize,
     selectedSort,
     showBookmarksOnly,
-    isAiSearch,
-    aiEnhancedQuery,
     bookmarks,
   ])
 
@@ -595,7 +588,7 @@ export default function BiotechDirectory() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <img src="/favicon.ico" alt="Biogrofe" className="h-8 w-8 mx-auto mb-4" />
+          {/* <img src="/favicon.ico" alt="Biogrofe" className="h-8 w-8 mx-auto mb-4" /> */}
           <h2 className="text-xl font-semibold text-foreground mb-2">Error Loading Data</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>Try Again</Button>
@@ -606,7 +599,6 @@ export default function BiotechDirectory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <ServiceWorkerRegistration />
 
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -627,7 +619,7 @@ export default function BiotechDirectory() {
                 }}
                 className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
               >
-                <img src="/favicon.ico" alt="Biogrofe" className="h-6 w-6 sm:h-8 sm:w-8" />
+                {/* <img src="/favicon.ico" alt="Biogrofe" className="h-6 w-6 sm:h-8 sm:w-8" /> */}
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Biogrofe</h1>
               </button>
 
@@ -1416,7 +1408,7 @@ export default function BiotechDirectory() {
 
                 {filteredOrganizations.length === 0 && (
                   <div className="text-center py-12">
-                    <img src="/favicon.ico" alt="Biogrofe" className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    {/* <img src="/favicon.ico" alt="Biogrofe" className="h-12 w-12 mx-auto mb-4 opacity-50" /> */}
                     <h3 className="text-lg font-semibold text-foreground mb-2">No organizations found</h3>
                     <p className="text-muted-foreground">Try adjusting your search criteria or filters</p>
                   </div>
@@ -1427,8 +1419,6 @@ export default function BiotechDirectory() {
         </div>
       </div>
 
-      {/* PWA Components */}
-      <PWAInstall />
     </div>
   )
 }
