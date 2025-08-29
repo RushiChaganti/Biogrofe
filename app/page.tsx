@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import {
-  Search,
   Filter,
   Building2,
   MapPin,
@@ -17,13 +16,16 @@ import {
   Grid3X3,
   Loader2,
 } from "lucide-react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { ExportMenu } from "@/components/export-menu"
+import { PWAInstall } from "@/components/pwa-install"
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
+import { WorldMap } from "@/components/world-map"
 
 type Organization = {
   id: number
@@ -41,8 +43,6 @@ type Organization = {
   organizationType: string[]
   founded: number
 }
-
-
 
 const employeeSizes = ["All Sizes", "10-50", "50-100", "100-500", "500-1000", "1000+"]
 
@@ -62,8 +62,17 @@ const isCompanyNameSearch = (query: string, organizations: Organization[]): bool
   })
 }
 
-const performIntelligentSearch = (query: string, organizations: Organization[]) => {
+const performIntelligentSearch = (
+  query: string,
+  organizations: Organization[],
+  isAI = false,
+  aiEnhancedQuery?: string,
+) => {
   if (!query.trim()) return organizations
+
+  // Use AI-enhanced query if available
+  const searchQuery = aiEnhancedQuery || query
+  const queryLower = searchQuery.toLowerCase()
 
   // Use regular search for company names
   if (isCompanyNameSearch(query, organizations)) {
@@ -72,8 +81,7 @@ const performIntelligentSearch = (query: string, organizations: Organization[]) 
   }
 
   // Use AI-like search for complex queries
-  console.log("[v0] Using intelligent search for complex query:", query)
-  const queryLower = query.toLowerCase()
+  console.log(`[v0] Using ${isAI ? "AI-enhanced" : "intelligent"} search for query:`, searchQuery)
 
   // Enhanced semantic search with scoring
   const scoredResults = organizations.map((org) => {
@@ -92,16 +100,18 @@ const performIntelligentSearch = (query: string, organizations: Organization[]) 
     // Location matches
     if (org.location.toLowerCase().includes(queryLower)) score += 4
 
-    // Semantic keyword matching
+    // Enhanced semantic keyword matching for AI queries
     const keywords = {
-      gene: ["gene therapy", "genetic", "genomic"],
-      drug: ["pharmaceuticals", "drug discovery", "medicine"],
-      ai: ["bioinformatics", "data", "analysis"],
-      nano: ["nanobiotechnology", "nanoparticle"],
-      marine: ["marine biotechnology", "ocean"],
-      agriculture: ["agricultural biotechnology", "crop"],
-      investment: ["venture capital", "funding"],
-      regulatory: ["fda", "compliance", "approval"],
+      gene: ["gene therapy", "genetic", "genomic", "crispr", "dna", "rna"],
+      drug: ["pharmaceuticals", "drug discovery", "medicine", "therapeutic", "clinical"],
+      ai: ["bioinformatics", "data", "analysis", "machine learning", "artificial intelligence"],
+      nano: ["nanobiotechnology", "nanoparticle", "nanotechnology"],
+      marine: ["marine biotechnology", "ocean", "aquaculture"],
+      agriculture: ["agricultural biotechnology", "crop", "farming", "seeds"],
+      investment: ["venture capital", "funding", "investor", "finance"],
+      regulatory: ["fda", "compliance", "approval", "regulation"],
+      cancer: ["oncology", "tumor", "chemotherapy", "immunotherapy"],
+      vaccine: ["immunization", "antibody", "immune", "prevention"],
     }
 
     Object.entries(keywords).forEach(([key, synonyms]) => {
@@ -111,7 +121,7 @@ const performIntelligentSearch = (query: string, organizations: Organization[]) 
             org.description.toLowerCase().includes(synonym) ||
             org.organizationType.some((s) => s.toLowerCase().includes(synonym))
           ) {
-            score += 3
+            score += isAI ? 4 : 3 // Higher score for AI-enhanced searches
           }
         })
       }
@@ -129,7 +139,7 @@ const parseCSV = (csvText: string): Organization[] => {
   // Parse CSV with proper handling of quoted fields and newlines
   const parseCSVText = (text: string): string[][] => {
     const result: string[][] = []
-    const lines = text.trim().split('\n')
+    const lines = text.trim().split("\n")
     let currentRow: string[] = []
     let currentField = ""
     let inQuotes = false
@@ -144,7 +154,7 @@ const parseCSV = (csvText: string): Organization[] => {
 
         if (char === '"') {
           inQuotes = !inQuotes
-        } else if (char === ',' && !inQuotes) {
+        } else if (char === "," && !inQuotes) {
           currentRow.push(currentField.trim())
           currentField = ""
         } else {
@@ -161,7 +171,7 @@ const parseCSV = (csvText: string): Organization[] => {
         currentField = ""
       } else {
         // We're in quotes and hit a newline, so add the newline and continue
-        currentField += '\n'
+        currentField += "\n"
       }
       i++
     }
@@ -190,7 +200,7 @@ const parseCSV = (csvText: string): Organization[] => {
     .slice(1)
     .map((row, index) => {
       // Skip empty rows
-      if (!row || row.length === 0 || row.every(field => !field.trim())) {
+      if (!row || row.length === 0 || row.every((field) => !field.trim())) {
         console.log(`[v0] Skipping empty row at index ${index}`)
         return null
       }
@@ -219,16 +229,24 @@ const parseCSV = (csvText: string): Organization[] => {
       }
 
       // Skip if the research area or organization contains contact information (indicates parsing error)
-      if (researchArea && (researchArea.includes('@') || researchArea.includes('(') || researchArea.includes('Level') || researchArea.includes('Street'))) {
-        console.log(`[v0] Skipping organization at index ${index} - research area contains contact info: "${researchArea}"`)
+      if (
+        researchArea &&
+        (researchArea.includes("@") ||
+          researchArea.includes("(") ||
+          researchArea.includes("Level") ||
+          researchArea.includes("Street"))
+      ) {
+        console.log(
+          `[v0] Skipping organization at index ${index} - research area contains contact info: "${researchArea}"`,
+        )
         return null
       }
 
       // Clean up fields that might have newlines or extra whitespace
-      const cleanResearchArea = researchArea.replace(/\n/g, ' ').trim()
-      const cleanOrganization = organization.replace(/\n/g, ' ').trim()
-      const cleanLocation = location.replace(/\n/g, ' ').trim()
-      const cleanAddress = address.replace(/\n/g, ' ').trim()
+      const cleanResearchArea = researchArea.replace(/\n/g, " ").trim()
+      const cleanOrganization = organization.replace(/\n/g, " ").trim()
+      const cleanLocation = location.replace(/\n/g, " ").trim()
+      const cleanAddress = address.replace(/\n/g, " ").trim()
 
       // Map the specific CSV structure to our organization format
       const transformedOrg = {
@@ -263,8 +281,13 @@ const parseCSV = (csvText: string): Organization[] => {
         return false
       }
       // Filter out organizations with invalid location data that contains contact info
-      if (org.location && (org.location.includes('@') || org.location.includes('(') ||
-          org.location.includes('Level') || org.location.includes('Suite'))) {
+      if (
+        org.location &&
+        (org.location.includes("@") ||
+          org.location.includes("(") ||
+          org.location.includes("Level") ||
+          org.location.includes("Suite"))
+      ) {
         console.log(`[v0] Filtering out organization with invalid location: "${org.name}" - "${org.location}"`)
         return false
       }
@@ -272,7 +295,10 @@ const parseCSV = (csvText: string): Organization[] => {
     }) // Filter out null entries and invalid organizations
 
   console.log("[v0] Final organizations count after filtering:", organizations.length)
-  console.log("[v0] Sample of final organizations:", organizations.slice(0, 3).map(org => ({ name: org.name, category: org.category })))
+  console.log(
+    "[v0] Sample of final organizations:",
+    organizations.slice(0, 3).map((org) => ({ name: org.name, category: org.category })),
+  )
   return organizations
 }
 
@@ -313,9 +339,10 @@ export default function BiotechDirectory() {
   const [compareList, setCompareList] = useState<number[]>([])
   const [showComparison, setShowComparison] = useState(false)
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false)
-  const [viewMode, setViewMode] = useState<"grid" | "countries">("grid")
+  const [viewMode, setViewMode] = useState<"grid" | "countries" | "map">("grid")
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
   const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks()
+  const [aiEnhancedQuery, setAiEnhancedQuery] = useState("")
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -383,44 +410,53 @@ export default function BiotechDirectory() {
   const categories = useMemo(() => {
     if (organizations.length === 0) return ["All Categories"]
 
-    const uniqueCategories = Array.from(new Set(organizations.map(org => org.category)))
-      .filter(category => category && category.trim() !== "")
+    const uniqueCategories = Array.from(new Set(organizations.map((org) => org.category)))
+      .filter((category) => category && category.trim() !== "")
       .sort()
 
     return ["All Categories", ...uniqueCategories]
   }, [organizations])
 
   const filteredOrganizations = useMemo(() => {
-    let results = organizations
+    let filtered = organizations
 
-    if (showBookmarksOnly) {
-      results = results.filter((org) => bookmarks.includes(org.id))
+    // Apply search filter with AI enhancement
+    if (searchTerm) {
+      filtered = performIntelligentSearch(searchTerm, filtered, isAiSearch, aiEnhancedQuery)
     }
 
-    if (searchTerm.trim()) {
-      const isCompanySearch = isCompanyNameSearch(searchTerm, organizations)
-      setIsAiSearch(!isCompanySearch)
-      results = performIntelligentSearch(searchTerm, results)
+    if (showBookmarksOnly) {
+      filtered = filtered.filter((org) => bookmarks.includes(org.id))
     }
 
     if (selectedCategory !== "All Categories") {
-      results = results.filter((org) => org.category === selectedCategory)
+      filtered = filtered.filter((org) => org.category === selectedCategory)
     }
 
     if (selectedEmployeeSize !== "All Sizes") {
-      results = results.filter((org) => org.employees === selectedEmployeeSize)
+      filtered = filtered.filter((org) => org.employees === selectedEmployeeSize)
     }
 
     // Apply sorting (always sort alphabetically)
     if (selectedSort === "Z to A") {
-      results = [...results].sort((a, b) => b.name.localeCompare(a.name))
+      filtered = [...filtered].sort((a, b) => b.name.localeCompare(a.name))
     } else {
       // Default to A to Z sorting
-      results = [...results].sort((a, b) => a.name.localeCompare(b.name))
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name))
     }
 
-    return results
-  }, [searchTerm, selectedCategory, selectedEmployeeSize, selectedSort, showBookmarksOnly, bookmarks, organizations])
+    return filtered
+  }, [
+    organizations,
+    searchTerm,
+    selectedCategory,
+    selectedEmployeeSize,
+    selectedSort,
+    showBookmarksOnly,
+    isAiSearch,
+    aiEnhancedQuery,
+    bookmarks,
+  ])
 
   const toggleCompare = (orgId: number) => {
     if (compareList.includes(orgId)) {
@@ -439,96 +475,109 @@ export default function BiotechDirectory() {
 
   // Extract country from location string and get country emoji
   const extractCountry = (location: string): string => {
-    if (!location || location.trim() === '') return 'Unknown'
+    if (!location || location.trim() === "") return "Unknown"
 
     const locationUpper = location.toUpperCase().trim()
 
     // Skip if location contains contact information (indicates parsing error)
-    if (locationUpper.includes('@') || locationUpper.includes('(') || locationUpper.includes('HTTP') ||
-        locationUpper.includes('LEVEL') || locationUpper.includes('SUITE') || locationUpper.includes('FLOOR')) {
-      return 'Unknown'
+    if (
+      locationUpper.includes("@") ||
+      locationUpper.includes("(") ||
+      locationUpper.includes("HTTP") ||
+      locationUpper.includes("LEVEL") ||
+      locationUpper.includes("SUITE") ||
+      locationUpper.includes("FLOOR")
+    ) {
+      return "Unknown"
     }
 
     // Handle common country formats
-    if (locationUpper === 'USA' || locationUpper.includes('UNITED STATES')) return 'United States'
-    if (locationUpper === 'UK' || locationUpper.includes('UNITED KINGDOM')) return 'United Kingdom'
-    if (locationUpper === 'INDIA') return 'India'
-    if (locationUpper === 'AUSTRALIA') return 'Australia'
-    if (locationUpper === 'CANADA') return 'Canada'
-    if (locationUpper === 'GERMANY') return 'Germany'
-    if (locationUpper === 'FRANCE') return 'France'
-    if (locationUpper === 'CHINA') return 'China'
-    if (locationUpper === 'JAPAN') return 'Japan'
-    if (locationUpper === 'SOUTH KOREA') return 'South Korea'
-    if (locationUpper === 'SINGAPORE') return 'Singapore'
-    if (locationUpper === 'SWITZERLAND') return 'Switzerland'
-    if (locationUpper === 'NETHERLANDS') return 'Netherlands'
-    if (locationUpper === 'SWEDEN') return 'Sweden'
-    if (locationUpper === 'DENMARK') return 'Denmark'
-    if (locationUpper === 'NORWAY') return 'Norway'
-    if (locationUpper === 'FINLAND') return 'Finland'
-    if (locationUpper === 'BELGIUM') return 'Belgium'
-    if (locationUpper === 'ITALY') return 'Italy'
-    if (locationUpper === 'SPAIN') return 'Spain'
-    if (locationUpper === 'ISRAEL') return 'Israel'
-    if (locationUpper === 'BRAZIL') return 'Brazil'
+    if (locationUpper === "USA" || locationUpper.includes("UNITED STATES")) return "United States"
+    if (locationUpper === "UK" || locationUpper.includes("UNITED KINGDOM")) return "United Kingdom"
+    if (locationUpper === "INDIA") return "India"
+    if (locationUpper === "AUSTRALIA") return "Australia"
+    if (locationUpper === "CANADA") return "Canada"
+    if (locationUpper === "GERMANY") return "Germany"
+    if (locationUpper === "FRANCE") return "France"
+    if (locationUpper === "CHINA") return "China"
+    if (locationUpper === "JAPAN") return "Japan"
+    if (locationUpper === "SOUTH KOREA") return "South Korea"
+    if (locationUpper === "SINGAPORE") return "Singapore"
+    if (locationUpper === "SWITZERLAND") return "Switzerland"
+    if (locationUpper === "NETHERLANDS") return "Netherlands"
+    if (locationUpper === "SWEDEN") return "Sweden"
+    if (locationUpper === "DENMARK") return "Denmark"
+    if (locationUpper === "NORWAY") return "Norway"
+    if (locationUpper === "FINLAND") return "Finland"
+    if (locationUpper === "BELGIUM") return "Belgium"
+    if (locationUpper === "ITALY") return "Italy"
+    if (locationUpper === "SPAIN") return "Spain"
+    if (locationUpper === "ISRAEL") return "Israel"
+    if (locationUpper === "BRAZIL") return "Brazil"
 
     // If no match found, return the original location (cleaned)
-    return location.trim() || 'Unknown'
+    return location.trim() || "Unknown"
   }
 
   const getCountryEmoji = (country: string): string => {
     const emojiMap: Record<string, string> = {
-      'United States': '🇺🇸',
-      'United Kingdom': '🇬🇧',
-      'India': '🇮🇳',
-      'Australia': '🇦🇺',
-      'Canada': '🇨🇦',
-      'Germany': '🇩🇪',
-      'France': '🇫🇷',
-      'China': '🇨🇳',
-      'Japan': '🇯🇵',
-      'South Korea': '🇰🇷',
-      'Singapore': '🇸🇬',
-      'Switzerland': '🇨🇭',
-      'Netherlands': '🇳🇱',
-      'Sweden': '🇸🇪',
-      'Denmark': '🇩🇰',
-      'Norway': '🇳🇴',
-      'Finland': '🇫🇮',
-      'Belgium': '🇧🇪',
-      'Italy': '🇮🇹',
-      'Spain': '🇪🇸',
-      'Israel': '🇮🇱',
-      'Brazil': '🇧🇷',
+      "United States": "🇺🇸",
+      "United Kingdom": "🇬🇧",
+      India: "🇮🇳",
+      Australia: "🇦🇺",
+      Canada: "🇨🇦",
+      Germany: "🇩🇪",
+      France: "🇫🇷",
+      China: "🇨🇳",
+      Japan: "🇯🇵",
+      "South Korea": "🇰🇷",
+      Singapore: "🇸🇬",
+      Switzerland: "🇨🇭",
+      Netherlands: "🇳🇱",
+      Sweden: "🇸🇪",
+      Denmark: "🇩🇰",
+      Norway: "🇳🇴",
+      Finland: "🇫🇮",
+      Belgium: "🇧🇪",
+      Italy: "🇮🇹",
+      Spain: "🇪🇸",
+      Israel: "🇮🇱",
+      Brazil: "🇧🇷",
     }
-    return emojiMap[country] || '🌍'
+    return emojiMap[country] || "🌍"
   }
 
   // Group organizations by country for timeline view
   const timelineData = useMemo(() => {
-    const grouped = filteredOrganizations.reduce((acc, org) => {
-      const country = extractCountry(org.location)
-      // Skip organizations with unknown or invalid countries
-      if (country === 'Unknown' || country === 'Location not specified' || !country.trim()) {
+    const grouped = filteredOrganizations.reduce(
+      (acc, org) => {
+        const country = extractCountry(org.location)
+        // Skip organizations with unknown or invalid countries
+        if (country === "Unknown" || country === "Location not specified" || !country.trim()) {
+          return acc
+        }
+        if (!acc[country]) {
+          acc[country] = []
+        }
+        acc[country].push(org)
         return acc
-      }
-      if (!acc[country]) {
-        acc[country] = []
-      }
-      acc[country].push(org)
-      return acc
-    }, {} as Record<string, Organization[]>)
+      },
+      {} as Record<string, Organization[]>,
+    )
 
     return Object.entries(grouped)
       .map(([country, orgs]) => ({
         country,
         organizations: orgs.sort((a, b) => a.name.localeCompare(b.name)),
-        count: orgs.length
+        count: orgs.length,
       }))
       .filter(({ count }) => count > 0) // Only include countries with organizations
       .sort((a, b) => b.count - a.count) // Most organizations first
   }, [filteredOrganizations])
+
+  const handleSearch = (query: string) => {
+    setSearchTerm(query);
+  };
 
   if (loading) {
     return (
@@ -557,10 +606,15 @@ export default function BiotechDirectory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
+      <ServiceWorkerRegistration />
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+          {/* Mobile-first header layout */}
+          <div className="flex flex-col gap-4 sm:gap-6">
+            {/* Top row: Logo and essential actions */}
+            <div className="flex items-center justify-between">
               <button
                 onClick={() => {
                   setSelectedOrg(null)
@@ -571,21 +625,37 @@ export default function BiotechDirectory() {
                   setSelectedSort("A to Z")
                   setShowBookmarksOnly(false)
                 }}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
               >
-                <img src="/favicon.ico" alt="Biogrofe" className="h-8 w-8" />
-                <h1 className="text-3xl font-bold text-foreground">Biogrofe</h1>
+                <img src="/favicon.ico" alt="Biogrofe" className="h-6 w-6 sm:h-8 sm:w-8" />
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Biogrofe</h1>
               </button>
+
+              {/* Mobile menu toggle and theme toggle */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3"
+                >
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden xs:inline text-xs sm:text-sm">Filters</span>
+                </Button>
+                <ThemeToggle />
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+
+            {/* Second row: Action buttons - responsive layout */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowBookmarksOnly(!showBookmarksOnly)}
-                className={`flex items-center gap-2 ${showBookmarksOnly ? "bg-primary text-primary-foreground" : ""}`}
+                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 ${showBookmarksOnly ? "bg-primary text-primary-foreground" : ""}`}
               >
                 <Bookmark className="h-4 w-4" />
-                <span className="hidden sm:inline">Bookmarks ({bookmarks.length})</span>
+                <span className="hidden xs:inline text-xs sm:text-sm">Bookmarks ({bookmarks.length})</span>
               </Button>
 
               {compareList.length > 0 && (
@@ -593,104 +663,95 @@ export default function BiotechDirectory() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowComparison(!showComparison)}
-                  className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
                 >
                   <GitCompare className="h-4 w-4" />
-                  <span className="hidden sm:inline">Compare ({compareList.length})</span>
+                  <span className="hidden xs:inline text-xs sm:text-sm">Compare ({compareList.length})</span>
                 </Button>
               )}
 
+              {/* View mode toggle - more compact on mobile */}
               <div className="flex items-center border border-border rounded-md">
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className="rounded-r-none border-r"
+                  className="rounded-r-none border-r px-2 sm:px-3"
                 >
                   <Grid3X3 className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Grid</span>
+                  <span className="hidden sm:inline ml-1 text-xs sm:text-sm">Grid</span>
                 </Button>
                 <Button
                   variant={viewMode === "countries" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("countries")}
-                  className="rounded-l-none"
+                  className="rounded-none border-r px-2 sm:px-3"
                 >
                   <Globe className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Countries</span>
+                  <span className="hidden sm:inline ml-1 text-xs sm:text-sm">Countries</span>
+                </Button>
+                <Button
+                  variant={viewMode === "map" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("map")}
+                  className="rounded-l-none px-2 sm:px-3"
+                >
+                  <MapPin className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-1 text-xs sm:text-sm">Map</span>
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">Filters</span>
-              </Button>
-              <ThemeToggle />
-            </div>
-          </div>
-
-          <div className="max-w-2xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              {isAiSearch && (
-                <Sparkles className="absolute right-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-primary animate-pulse" />
-              )}
-              <Input
-                placeholder="Search organizations, organization types, or ask complex questions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 pr-12 h-12 text-lg"
+              <ExportMenu
+                organizations={filteredOrganizations}
+                filters={{
+                  searchTerm: searchTerm,
+                  category: selectedCategory,
+                  employeeSize: selectedEmployeeSize,
+                }}
               />
             </div>
-            {searchTerm && (
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                {isAiSearch ? (
-                  <span className="flex items-center justify-center gap-1">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Using AI-powered search
-                  </span>
-                ) : (
-                  "Using direct company search"
-                )}
-              </p>
-            )}
-          </div>
 
-          <p className="text-muted-foreground text-lg text-center mt-4">
-            Discover leading biotechnology companies, research institutions, and industry partners
-          </p>
+            {/* Search section */}
+            <div className="max-w-2xl mx-auto w-full">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search organizations..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10 sm:pl-12 pr-10 sm:pr-12 h-10 sm:h-12 text-sm sm:text-lg border rounded-md w-full"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {showFilters && (
             <>
               <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setShowFilters(false)} />
-              <aside className="fixed top-0 right-0 h-full w-80 bg-background border-l border-border z-50 lg:relative lg:w-64 lg:h-auto lg:bg-transparent lg:border-l-0 lg:z-auto">
-                <div className="p-4 lg:p-0">
+              <aside className="fixed top-0 right-0 h-full w-full max-w-sm bg-background border-l border-border z-50 lg:relative lg:w-64 lg:h-auto lg:bg-transparent lg:border-l-0 lg:z-auto">
+                <div className="p-3 sm:p-4 lg:p-0 h-full overflow-y-auto">
                   <Card className="lg:sticky lg:top-4">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between text-base">
+                      <div className="flex items-center justify-between text-sm sm:text-base">
                         <span className="flex items-center gap-2">
                           <Filter className="h-4 w-4" />
                           Filters
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)}>
-                          ×
+                        <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)} className="lg:hidden">
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3 pt-0">
+                    <CardContent className="space-y-4 pt-0">
                       <div>
-                        <label className="text-xs font-medium text-foreground mb-1 block">Category</label>
+                        <label className="text-xs font-medium text-foreground mb-2 block">Category</label>
                         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                          <SelectTrigger className="h-8 text-sm">
+                          <SelectTrigger className="h-9 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -704,9 +765,9 @@ export default function BiotechDirectory() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-medium text-foreground mb-1 block">Company Size</label>
+                        <label className="text-xs font-medium text-foreground mb-2 block">Company Size</label>
                         <Select value={selectedEmployeeSize} onValueChange={setSelectedEmployeeSize}>
-                          <SelectTrigger className="h-8 text-sm">
+                          <SelectTrigger className="h-9 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -720,9 +781,9 @@ export default function BiotechDirectory() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-medium text-foreground mb-1 block">Sort By</label>
+                        <label className="text-xs font-medium text-foreground mb-2 block">Sort By</label>
                         <Select value={selectedSort} onValueChange={setSelectedSort}>
-                          <SelectTrigger className="h-8 text-sm">
+                          <SelectTrigger className="h-9 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -735,11 +796,18 @@ export default function BiotechDirectory() {
                         </Select>
                       </div>
 
-                      <div className="pt-2 border-t border-border">
+                      <div className="pt-3 border-t border-border">
                         <p className="text-xs text-muted-foreground">
                           {filteredOrganizations.length} organization{filteredOrganizations.length !== 1 ? "s" : ""}{" "}
                           found
                         </p>
+                      </div>
+
+                      {/* Mobile-only close button */}
+                      <div className="lg:hidden pt-4">
+                        <Button onClick={() => setShowFilters(false)} className="w-full" size="sm">
+                          Apply Filters
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -973,7 +1041,17 @@ export default function BiotechDirectory() {
                   )}
                 </div>
 
-                {viewMode === "countries" ? (
+                {viewMode === "map" ? (
+                  <div className="space-y-6">
+                    <div className="text-center mb-6">
+                      <h3 className="text-2xl font-bold text-foreground mb-2">Interactive World Map</h3>
+                      <p className="text-muted-foreground">
+                        Explore biotechnology organizations by their geographic locations
+                      </p>
+                    </div>
+                    <WorldMap organizations={filteredOrganizations} onOrganizationSelect={setSelectedOrg} />
+                  </div>
+                ) : viewMode === "countries" ? (
                   <div className="space-y-6">
                     <div className="relative bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 dark:from-slate-950 dark:via-blue-950 dark:to-green-950 border border-border rounded-2xl p-8 overflow-hidden">
                       {/* Background Pattern */}
@@ -1022,18 +1100,20 @@ export default function BiotechDirectory() {
                         {/* Country Blobs Content */}
                         <div className="space-y-8">
                           {/* Country Blobs Grid */}
-                          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {timelineData.map((countryData) => (
                               <Card
                                 key={countryData.country}
                                 className={`cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-2 ${
                                   expandedCountry === countryData.country
-                                    ? 'border-primary bg-primary/5 shadow-lg'
-                                    : 'border-border hover:border-primary/50'
+                                    ? "border-primary bg-primary/5 shadow-lg"
+                                    : "border-border hover:border-primary/50"
                                 }`}
-                                onClick={() => setExpandedCountry(
-                                  expandedCountry === countryData.country ? null : countryData.country
-                                )}
+                                onClick={() =>
+                                  setExpandedCountry(
+                                    expandedCountry === countryData.country ? null : countryData.country,
+                                  )
+                                }
                               >
                                 <CardContent className="p-6 text-center">
                                   <div className="relative inline-block mb-4">
@@ -1047,11 +1127,11 @@ export default function BiotechDirectory() {
                                     {countryData.country}
                                   </h3>
                                   <p className="text-muted-foreground text-sm">
-                                    {countryData.count} organization{countryData.count !== 1 ? 's' : ''}
+                                    {countryData.count} organization{countryData.count !== 1 ? "s" : ""}
                                   </p>
                                   <div className="mt-3">
                                     <Badge variant="secondary" className="text-xs">
-                                      Click to {expandedCountry === countryData.country ? 'collapse' : 'expand'}
+                                      Click to {expandedCountry === countryData.country ? "collapse" : "expand"}
                                     </Badge>
                                   </div>
                                 </CardContent>
@@ -1073,7 +1153,7 @@ export default function BiotechDirectory() {
                                       {expandedCountry}
                                     </h3>
                                     <p className="text-muted-foreground">
-                                      {timelineData.find(c => c.country === expandedCountry)?.count} organizations
+                                      {timelineData.find((c) => c.country === expandedCountry)?.count} organizations
                                     </p>
                                   </div>
                                 </div>
@@ -1089,94 +1169,91 @@ export default function BiotechDirectory() {
                               </div>
 
                               {/* Organizations Grid */}
-                              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                                 {timelineData
-                                  .find(c => c.country === expandedCountry)
+                                  .find((c) => c.country === expandedCountry)
                                   ?.organizations.map((org, orgIndex) => (
-                                  <Card
-                                    key={org.id}
-                                    className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-primary/50 cursor-pointer"
-                                    style={{
-                                      animationDelay: `${orgIndex * 0.1}s`,
-                                    }}
-                                    onClick={() => setSelectedOrg(org)}
-                                  >
-                                    <CardHeader className="pb-3">
-                                      <div className="flex items-start justify-between">
-                                        <div className="min-w-0 flex-1">
-                                          <CardTitle className="text-base leading-tight">{org.name}</CardTitle>
-                                          <CardDescription className="text-xs">{org.category}</CardDescription>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              toggleBookmark(org.id)
-                                            }}
-                                            className="p-1 h-auto"
-                                          >
-                                            {isBookmarked(org.id) ? (
-                                              <BookmarkCheck className="h-4 w-4 text-primary" />
-                                            ) : (
-                                              <Bookmark className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                            )}
-                                          </Button>
-                                          <div onClick={(e) => e.stopPropagation()}>
-                                            <Checkbox
-                                              checked={compareList.includes(org.id)}
-                                              onCheckedChange={() => toggleCompare(org.id)}
-                                              disabled={!compareList.includes(org.id) && compareList.length >= 5}
-                                              className="h-4 w-4 border-muted-foreground hover:border-primary data-[state=checked]:border-primary data-[state=checked]:bg-primary"
-                                            />
+                                    <Card
+                                      key={org.id}
+                                      className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-primary/50 cursor-pointer"
+                                      style={{
+                                        animationDelay: `${orgIndex * 0.1}s`,
+                                      }}
+                                      onClick={() => setSelectedOrg(org)}
+                                    >
+                                      <CardHeader className="pb-3">
+                                        <div className="flex items-start justify-between">
+                                          <div className="min-w-0 flex-1">
+                                            <CardTitle className="text-base leading-tight">{org.name}</CardTitle>
+                                            <CardDescription className="text-xs">{org.category}</CardDescription>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                toggleBookmark(org.id)
+                                              }}
+                                              className="p-1 h-auto"
+                                            >
+                                              {isBookmarked(org.id) ? (
+                                                <BookmarkCheck className="h-4 w-4 text-primary" />
+                                              ) : (
+                                                <Bookmark className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                              )}
+                                            </Button>
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                              <Checkbox
+                                                checked={compareList.includes(org.id)}
+                                                onCheckedChange={() => toggleCompare(org.id)}
+                                                disabled={!compareList.includes(org.id) && compareList.length >= 5}
+                                                className="h-4 w-4 border-muted-foreground hover:border-primary data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                                              />
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-0 space-y-3">
-                                      {/* <p className="text-xs text-muted-foreground line-clamp-2">{org.description}</p> */}
+                                      </CardHeader>
+                                      <CardContent className="pt-0 space-y-3">
+                                        {/* <p className="text-xs text-muted-foreground line-clamp-2">{org.description}</p> */}
 
-                                      <div className="space-y-2">
-                                        <div className="flex items-center gap-1 text-xs">
-                                          <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                                          <span className="truncate">{org.location}</span>
+                                        <div className="space-y-2">
+                                          <div className="flex items-center gap-1 text-xs">
+                                            <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                                            <span className="truncate">{org.location}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-xs">
+                                            <Globe className="h-3 w-3 text-primary flex-shrink-0" />
+                                            <a
+                                              href={`https://${org.website}`}
+                                              className="text-primary hover:underline truncate"
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {org.website}
+                                            </a>
+                                          </div>
                                         </div>
-                                        <div className="flex items-center gap-1 text-xs">
-                                          <Globe className="h-3 w-3 text-primary flex-shrink-0" />
-                                          <a
-                                            href={`https://${org.website}`}
-                                            className="text-primary hover:underline truncate"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            {org.website}
-                                          </a>
+
+                                        <div className="flex flex-wrap gap-1">
+                                          {org.organizationType.slice(0, 2).map((type) => (
+                                            <Badge key={type} variant="secondary" className="text-xs">
+                                              {type}
+                                            </Badge>
+                                          ))}
+                                          {org.organizationType.length > 2 && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              +{org.organizationType.length - 2} more
+                                            </Badge>
+                                          )}
                                         </div>
-                                      </div>
-
-                                      <div className="flex flex-wrap gap-1">
-                                        {org.organizationType.slice(0, 2).map((type) => (
-                                          <Badge key={type} variant="secondary" className="text-xs">
-                                            {type}
-                                          </Badge>
-                                        ))}
-                                        {org.organizationType.length > 2 && (
-                                          <Badge variant="secondary" className="text-xs">
-                                            +{org.organizationType.length - 2} more
-                                          </Badge>
-                                        )}
-                                      </div>
-
-
-                                    </CardContent>
-                                  </Card>
-                                ))}
+                                      </CardContent>
+                                    </Card>
+                                  ))}
                               </div>
                             </div>
                           )}
-
                         </div>
 
                         {/* Country View Footer */}
@@ -1203,20 +1280,22 @@ export default function BiotechDirectory() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredOrganizations.map((org) => (
                       <Card
                         key={org.id}
                         className="hover:shadow-lg transition-shadow cursor-pointer"
                         onClick={() => setSelectedOrg(org)}
                       >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
+                        <CardHeader className="pb-2 sm:pb-3">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <CardTitle className="text-base leading-tight">{org.name}</CardTitle>
-                              <CardDescription className="text-xs">{org.category}</CardDescription>
+                              <CardTitle className="text-sm sm:text-base leading-tight line-clamp-2">
+                                {org.name}
+                              </CardTitle>
+                              <CardDescription className="text-xs mt-1">{org.category}</CardDescription>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1224,43 +1303,38 @@ export default function BiotechDirectory() {
                                   e.stopPropagation()
                                   toggleBookmark(org.id)
                                 }}
-                                className="p-1 h-auto"
+                                className="p-1 h-auto w-auto"
                               >
                                 {isBookmarked(org.id) ? (
-                                  <BookmarkCheck className="h-4 w-4 text-primary" />
+                                  <BookmarkCheck className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                 ) : (
-                                  <Bookmark className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                  <Bookmark className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground hover:text-primary" />
                                 )}
                               </Button>
-                              <div
-                                className="flex items-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
+                              <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                                 <Checkbox
                                   checked={compareList.includes(org.id)}
                                   onCheckedChange={() => toggleCompare(org.id)}
                                   disabled={!compareList.includes(org.id) && compareList.length >= 5}
-                                  className="h-4 w-4 border-muted-foreground hover:border-primary data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                                  className="h-3 w-3 sm:h-4 sm:w-4 border-muted-foreground hover:border-primary data-[state=checked]:border-primary data-[state=checked]:bg-primary"
                                 />
                               </div>
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="pt-0 space-y-3">
-                          {/* <p className="text-xs text-muted-foreground line-clamp-2">{org.description}</p> */}
-
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-1 text-xs">
+                        <CardContent className="pt-0 space-y-2 sm:space-y-3">
+                          <div className="space-y-1.5 sm:space-y-2">
+                            <div className="flex items-center gap-1.5 text-xs">
                               <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
                               <span className="truncate">{org.location}</span>
                             </div>
                             {org.address && org.address !== "Address not specified" && (
-                              <div className="flex items-start gap-1 text-xs">
+                              <div className="flex items-start gap-1.5 text-xs">
                                 <Building2 className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" />
-                                <span className="truncate text-xs">{org.address}</span>
+                                <span className="truncate text-xs leading-tight">{org.address}</span>
                               </div>
                             )}
-                            <div className="flex items-center gap-1 text-xs">
+                            <div className="flex items-center gap-1.5 text-xs">
                               <Globe className="h-3 w-3 text-primary flex-shrink-0" />
                               <a
                                 href={`https://${org.website}`}
@@ -1272,17 +1346,17 @@ export default function BiotechDirectory() {
                                 {org.website}
                               </a>
                             </div>
-                            <div className="flex items-center gap-1 text-xs">
+                            <div className="flex items-center gap-1.5 text-xs">
                               <Phone className="h-3 w-3 text-primary flex-shrink-0" />
                               <a
                                 href={`tel:${org.phone}`}
-                                className="text-primary hover:underline"
+                                className="text-primary hover:underline truncate"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {org.phone}
                               </a>
                             </div>
-                            <div className="flex items-center gap-1 text-xs">
+                            <div className="flex items-center gap-1.5 text-xs">
                               <Mail className="h-3 w-3 text-primary flex-shrink-0" />
                               <a
                                 href={`mailto:${org.email}`}
@@ -1293,7 +1367,7 @@ export default function BiotechDirectory() {
                               </a>
                             </div>
                             {org.twitter && (
-                              <div className="flex items-center gap-1 text-xs">
+                              <div className="flex items-center gap-1.5 text-xs">
                                 <span className="text-primary text-xs">𝕏</span>
                                 <a
                                   href={`https://twitter.com/${org.twitter}`}
@@ -1307,7 +1381,7 @@ export default function BiotechDirectory() {
                               </div>
                             )}
                             {org.linkedin && (
-                              <div className="flex items-center gap-1 text-xs">
+                              <div className="flex items-center gap-1.5 text-xs">
                                 <span className="text-primary text-xs">in</span>
                                 <a
                                   href={`https://linkedin.com/company/${org.linkedin}`}
@@ -1324,18 +1398,16 @@ export default function BiotechDirectory() {
 
                           <div className="flex flex-wrap gap-1">
                             {org.organizationType.slice(0, 2).map((type) => (
-                              <Badge key={type} variant="secondary" className="text-xs">
+                              <Badge key={type} variant="secondary" className="text-xs px-1.5 py-0.5">
                                 {type}
                               </Badge>
                             ))}
                             {org.organizationType.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                                 +{org.organizationType.length - 2} more
                               </Badge>
                             )}
                           </div>
-
-
                         </CardContent>
                       </Card>
                     ))}
@@ -1354,6 +1426,9 @@ export default function BiotechDirectory() {
           </main>
         </div>
       </div>
+
+      {/* PWA Components */}
+      <PWAInstall />
     </div>
   )
 }

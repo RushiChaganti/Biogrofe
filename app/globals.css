@@ -118,3 +118,54 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Line clamp utilities for text truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Custom breakpoint for extra small screens */
+  @media (min-width: 475px) {
+    .xs\:inline {
+      display: inline;
+    }
+  }
+
+  /* Improved mobile touch targets */
+  @media (max-width: 640px) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Better mobile spacing */
+  @media (max-width: 640px) {
+    .mobile-compact {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Ensure bookmarks have a visible text color in dark mode */
+  .dark .bookmark {
+    color: var(--foreground); /* Ensure bookmarks are visible in dark mode */
+  }
+}
