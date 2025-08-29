@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Biogrofe
 
-## Getting Started
 
-First, run the development server:
+Biogrofe is a platform designed to support **Biotechnology students** by helping them discover and connect with organizations worldwide. Originally launched as a mobile app, Biogrofe has now evolved into a [**website**](https://rushichaganti.github.io/Biogrofe/) with improved accessibility and features.  
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🌟 Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* 🔍 **Search Organizations** – Quickly find biotechnology-related organizations.
+* 🌍 **Sort by Country** – Filter and explore organizations based on geography.
+* 📊 **Compare Organizations** – Side-by-side comparisons to make informed choices.
+* 📑 **Bookmark for Later** – Save organizations to revisit when needed.
+* 📤 **Export Data** – Download collected data for offline use or research.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> 🚀 Many more exciting features are under development — stay tuned!
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 💡 Why Biogrofe?
 
-## Learn More
+Navigating the biotech industry as a student can be overwhelming. Biogrofe simplifies the process by centralizing information, offering tools for comparison, and providing easy data management, making career exploration smoother and smarter.
 
-To learn more about Next.js, take a look at the following resources:
+## 👥 Team & Contributions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+* [**Rohith Roy Gundu**](https://www.linkedin.com/in/rohithroygundu/) – Supported the project by gathering organization data
+* [**Khushi Rathour**](https://www.linkedin.com/in/khushi-rathour-b65897224/) – Supported the project by finding and validating data
+* [**Rushi Chaganti**](https://www.linkedin.com/in/rushichaganti/) – Developer
+* [**Swatantar Kumar, Dr. rer. nat.**](https://www.linkedin.com/in/swatantar-kumar-dr-rer-nat-62a023231/) – Mentor
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📌 Roadmap
 
-## Deploy on Vercel
+* More detailed organizational profiles
+* Collaboration tools for students
+* Data-driven insights & recommendations
+* …and more (currently under wraps)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📜 License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under an open-source license 
