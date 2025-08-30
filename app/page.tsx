@@ -323,20 +323,7 @@ const useBookmarks = () => {
 
   return { bookmarks, toggleBookmark, isBookmarked }
 }
-const cleanUrl = (website: string | undefined): string => {
-  if (!website) return '';
-  
-  const cleaned = website.toString().trim();
-  
-  // If it's already a proper URL, return as-is
-  if (/^https?:\/\/[^\s]+$/.test(cleaned)) {
-    return cleaned;
-  }
-  
-  // Otherwise, clean and rebuild
-  const withoutProtocol = cleaned.replace(/^https?:\/\//, '');
-  return `https://${withoutProtocol}`;
-};
+
 
 export default function BiotechDirectory() {
   const [organizations, setOrganizations] = useState<Organization[]>([])

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Building2, Globe, Mail, Phone, X, Loader2, Plus, Minus, RotateCcw } from "lucide-react"
+import { MapPin, Building2, Globe, Mail, Phone, X, Loader2} from "lucide-react"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(
@@ -157,8 +157,9 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
       
       // Load Leaflet JS and fix marker icons
       import('leaflet').then((L) => {
-        delete (L.Icon.Default.prototype as any)._getIconUrl
-        L.Icon.Default.mergeOptions({
+        // @ts-expect-error Accessing private _getIconUrl property to fix Leaflet icon issue
+        delete L.Icon.Default.prototype._getIconUrl
+          L.Icon.Default.mergeOptions({
           iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
           iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
