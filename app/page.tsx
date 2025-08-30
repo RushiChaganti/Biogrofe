@@ -130,6 +130,7 @@ const performIntelligentSearch = (
   return scoredResults.filter((org) => org.searchScore > 0).sort((a, b) => b.searchScore - a.searchScore)
 }
 
+
 const parseCSV = (csvText: string): Organization[] => {
   console.log("[v0] Starting CSV parsing...")
 
@@ -192,6 +193,8 @@ const parseCSV = (csvText: string): Organization[] => {
 
   const headers = rows[0]
   console.log("[v0] CSV headers:", headers)
+
+  
 
   const organizations = rows
     .slice(1)
@@ -320,6 +323,20 @@ const useBookmarks = () => {
 
   return { bookmarks, toggleBookmark, isBookmarked }
 }
+const cleanUrl = (website: string | undefined): string => {
+  if (!website) return '';
+  
+  const cleaned = website.toString().trim();
+  
+  // If it's already a proper URL, return as-is
+  if (/^https?:\/\/[^\s]+$/.test(cleaned)) {
+    return cleaned;
+  }
+  
+  // Otherwise, clean and rebuild
+  const withoutProtocol = cleaned.replace(/^https?:\/\//, '');
+  return `https://${withoutProtocol}`;
+};
 
 export default function BiotechDirectory() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -857,7 +874,7 @@ export default function BiotechDirectory() {
                             <div className="flex items-center gap-2 text-sm">
                               <Globe className="h-4 w-4 text-primary flex-shrink-0" />
                               <a
-                                href={`https://${org.website}`}
+                                href={org.website}
                                 className="text-primary hover:underline truncate"
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -957,7 +974,7 @@ export default function BiotechDirectory() {
                       )}
                       <div className="flex items-center gap-3">
                         <Globe className="h-5 w-5 text-primary" />
-                        <a href={`https://${selectedOrg.website}`} className="text-primary hover:underline">
+                        <a href={selectedOrg.website} className="text-primary hover:underline">
                           {selectedOrg.website}
                         </a>
                       </div>
@@ -1093,20 +1110,24 @@ export default function BiotechDirectory() {
                         <div className="space-y-8">
                           {/* Country Blobs Grid */}
                           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {timelineData.map((countryData) => (
-                              <Card
-                                key={countryData.country}
-                                className={`cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-2 ${
-                                  expandedCountry === countryData.country
-                                    ? "border-primary bg-primary/5 shadow-lg"
-                                    : "border-border hover:border-primary/50"
-                                }`}
-                                onClick={() =>
-                                  setExpandedCountry(
-                                    expandedCountry === countryData.country ? null : countryData.country,
-                                  )
-                                }
-                              >
+                            {timelineData
+                              .slice() 
+                              .sort((a, b) => a.country.localeCompare(b.country))
+                              .map((countryData) => (
+                                <Card
+                                  key={countryData.country}
+                                  className={`cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-2 border-2 ${
+                                    expandedCountry === countryData.country
+                                      ? "border-primary bg-primary/5 shadow-lg"
+                                      : "border-border hover:border-primary/50"
+                                  }`}
+                                  onClick={() =>
+                                    setExpandedCountry(
+                                      expandedCountry === countryData.country ? null : countryData.country,
+                                    )
+                                  }
+                                >
+
                                 <CardContent className="p-6 text-center">
                                   <div className="relative inline-block mb-4">
                                     <div className="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-full flex items-center justify-center shadow-lg mx-auto">
@@ -1206,6 +1227,7 @@ export default function BiotechDirectory() {
                                           </div>
                                         </div>
                                       </CardHeader>
+                                      
                                       <CardContent className="pt-0 space-y-3">
                                         {/* <p className="text-xs text-muted-foreground line-clamp-2">{org.description}</p> */}
 
@@ -1216,15 +1238,17 @@ export default function BiotechDirectory() {
                                           </div>
                                           <div className="flex items-center gap-1 text-xs">
                                             <Globe className="h-3 w-3 text-primary flex-shrink-0" />
-                                            <a
-                                              href={`https://${org.website}`}
-                                              className="text-primary hover:underline truncate"
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {org.website}
-                                            </a>
+                                           
+
+                                 
+                                             <a
+                                            href={org.website}
+                                            className="text-primary hover:underline truncate"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            {org.website}
+                                          </a>
                                           </div>
                                         </div>
 
@@ -1329,7 +1353,7 @@ export default function BiotechDirectory() {
                             <div className="flex items-center gap-1.5 text-xs">
                               <Globe className="h-3 w-3 text-primary flex-shrink-0" />
                               <a
-                                href={`https://${org.website}`}
+                                href={org.website}
                                 className="text-primary hover:underline truncate"
                                 target="_blank"
                                 rel="noopener noreferrer"

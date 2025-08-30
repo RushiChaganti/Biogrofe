@@ -5,12 +5,19 @@ import dynamic from "next/dynamic"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Building2, Globe, Mail, Phone, X, Loader2 } from "lucide-react"
+import { MapPin, Building2, Globe, Mail, Phone, X, Loader2, Plus, Minus, RotateCcw } from "lucide-react"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(
   () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="h-96 bg-muted rounded-lg flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 )
 
 const TileLayer = dynamic(
@@ -25,6 +32,11 @@ const Marker = dynamic(
 
 const Popup = dynamic(
   () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+)
+
+const ZoomControl = dynamic(
+  () => import('react-leaflet').then((mod) => mod.ZoomControl),
   { ssr: false }
 )
 
@@ -107,15 +119,12 @@ const locationCoordinates: Record<string, [number, number]> = {
 
 // Function to get coordinates for a location
 const getCoordinates = (location: string): [number, number] | null => {
-  // Clean the location string
   const cleanLocation = location.trim()
   
-  // Direct match
   if (locationCoordinates[cleanLocation]) {
     return locationCoordinates[cleanLocation]
   }
   
-  // Try to find a partial match
   const locationKeys = Object.keys(locationCoordinates)
   const partialMatch = locationKeys.find(key => 
     cleanLocation.toLowerCase().includes(key.toLowerCase()) ||
@@ -132,22 +141,32 @@ const getCoordinates = (location: string): [number, number] | null => {
 export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
     
     // Load Leaflet CSS
     if (typeof window !== 'undefined') {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+      link.crossOrigin = ''
+      document.head.appendChild(link)
+      
+      // Load Leaflet JS and fix marker icons
       import('leaflet').then((L) => {
-        // Fix for default markers
-      delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: () => string })._getIconUrl
+        delete (L.Icon.Default.prototype as any)._getIconUrl
         L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
         })
-        setLeafletLoaded(true)
+        setMapLoaded(true)
+      }).catch(() => {
+        console.error('Failed to load Leaflet')
+        setMapLoaded(true) // Still try to render
       })
     }
   }, [])
@@ -177,7 +196,7 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
     return groups
   }, [mappedOrganizations])
 
-  if (!isClient || !leafletLoaded) {
+  if (!isClient || !mapLoaded) {
     return (
       <div className="h-96 bg-muted rounded-lg flex items-center justify-center">
         <div className="text-center">
@@ -197,11 +216,17 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
             zoom={2}
             style={{ height: '100%', width: '100%' }}
             className="z-0"
+            scrollWheelZoom={true}
+            doubleClickZoom={true}
+            dragging={true}
+            zoomControl={false}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            
+            <ZoomControl position="topright" />
             
             {Object.entries(locationGroups).map(([key, orgs]) => {
               const [lat, lng] = orgs[0].coordinates
@@ -220,8 +245,8 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
                     }
                   }}
                 >
-                  <Popup>
-                    <div className="p-2 min-w-[250px]">
+                  <Popup maxWidth={300} minWidth={250}>
+                    <div className="p-2">
                       {isCluster ? (
                         <div>
                           <h3 className="font-semibold mb-2">
@@ -231,7 +256,7 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
                             {orgs.map(org => (
                               <div
                                 key={org.id}
-                                className="p-2 border rounded cursor-pointer hover:bg-gray-50"
+                                className="p-2 border rounded cursor-pointer hover:bg-gray-50 transition-colors"
                                 onClick={() => {
                                   setSelectedOrg(org)
                                   onOrganizationSelect?.(org)
@@ -248,7 +273,7 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
                           <h3 className="font-semibold">{orgs[0].name}</h3>
                           <p className="text-sm text-gray-600 mb-2">{orgs[0].category}</p>
                           <p className="text-xs">{orgs[0].description}</p>
-                          <div className="mt-2 flex gap-1">
+                          <div className="mt-2 flex flex-wrap gap-1">
                             {orgs[0].organizationType.slice(0, 2).map(type => (
                               <Badge key={type} variant="secondary" className="text-xs">
                                 {type}
@@ -266,7 +291,7 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
         </div>
         
         {/* Map Statistics */}
-        <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 border border-border">
+        <div className="absolute top-4 left-4 bg-background/95 backdrop-blur-sm rounded-lg p-3 border border-border shadow-lg">
           <div className="text-sm space-y-1">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
@@ -282,12 +307,17 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
 
       {/* Selected Organization Details */}
       {selectedOrg && (
-        <Card className="border-primary/20">
+        <Card className="border-primary/20 shadow-lg">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-lg">{selectedOrg.name}</CardTitle>
-                <CardDescription>{selectedOrg.category}</CardDescription>
+                <CardDescription className="flex items-center gap-2">
+                  <span>{selectedOrg.category}</span>
+                  <Badge variant="outline" className="text-xs">
+                    Founded {selectedOrg.founded}
+                  </Badge>
+                </CardDescription>
               </div>
               <Button
                 variant="ghost"
@@ -314,6 +344,12 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
                     <span className="text-xs">{selectedOrg.address}</span>
                   </div>
                 )}
+                {selectedOrg.employees && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <span>{selectedOrg.employees} employees</span>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -328,7 +364,22 @@ export function WorldMap({ organizations, onOrganizationSelect }: WorldMapProps)
                 {selectedOrg.phone && (
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-4 w-4 text-primary" />
-                    <span>{selectedOrg.phone}</span>
+                    <a href={`tel:${selectedOrg.phone}`} className="text-primary hover:underline">
+                      {selectedOrg.phone}
+                    </a>
+                  </div>
+                )}
+                {selectedOrg.website && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <a 
+                      href={selectedOrg.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-primary hover:underline truncate"
+                    >
+                      Visit Website
+                    </a>
                   </div>
                 )}
               </div>
