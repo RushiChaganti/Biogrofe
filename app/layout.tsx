@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
   icon: [
-    { url: '/biogrofe.ico', type: 'image/x-icon' },
+    { url: 'biogrofe.ico', type: 'image/x-icon' },
   ],
 },
 
