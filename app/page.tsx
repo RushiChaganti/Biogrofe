@@ -592,7 +592,7 @@ export default function BiotechDirectory() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          {/* <img src="/biogrofe.ico" alt="Biogrofe" className="h-8 w-8 mx-auto mb-4" /> */}
+          <img src="/biogrofe.ico" alt="Biogrofe" className="h-8 w-8 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-foreground mb-2">Error Loading Data</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>Try Again</Button>
@@ -623,7 +623,7 @@ export default function BiotechDirectory() {
                 }}
                 className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
               >
-                {/* <img src="/biogrofe.ico" alt="Biogrofe" className="h-6 w-6 sm:h-8 sm:w-8" /> */}
+                <img src="/biogrofe.ico" alt="Biogrofe" className="h-6 w-6 sm:h-8 sm:w-8" />
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">Biogrofe</h1>
               </button>
 
@@ -1419,7 +1419,7 @@ export default function BiotechDirectory() {
 
                 {filteredOrganizations.length === 0 && (
                   <div className="text-center py-12">
-                    {/* <img src="/biogrofe.ico" alt="Biogrofe" className="h-12 w-12 mx-auto mb-4 opacity-50" /> */}
+                    <img src="/biogrofe.ico" alt="Biogrofe" className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <h3 className="text-lg font-semibold text-foreground mb-2">No organizations found</h3>
                     <p className="text-muted-foreground">Try adjusting your search criteria or filters</p>
                   </div>
